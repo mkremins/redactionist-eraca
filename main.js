@@ -133,7 +133,7 @@ console.log("coOccurrenceProbabilities", coOccurrenceProbabilities);
 
 /// poem summary statistics
 
-function averageWordPosition(poem) {
+function avgWordPosition(poem) {
   return average(poem);
 }
 
@@ -153,7 +153,7 @@ function frequencyWithinPoemspace(wordIndex) {
   return occurrenceCount / totalWordsCount;
 }
 
-function withinPoemspaceFrequencyOfRarestWord(poem) {
+function minPoemspaceWordFreq(poem) {
   const frequenciesWithinPoemspace = poem.map(frequencyWithinPoemspace);
   return frequenciesWithinPoemspace.sort()[0];
 }
@@ -163,7 +163,7 @@ function withinPoemspaceFrequencyOfMostCommonWord(poem) {
   return frequenciesWithinPoemspace.sort().reverse()[0];
 }
 
-function averageWithinPoemspaceWordFrequency(poem) {
+function avgPoemspaceWordFreq(poem) {
   return average(poem.map(frequencyWithinPoemspace));
 }
 
@@ -175,12 +175,12 @@ function poemLengthInWords(poem) {
   return poem.length;
 }
 
-function distanceBetweenFirstAndLastWord(poem) {
+function distBetweenFirstAndLastWords(poem) {
   const sorted = [...poem].sort((a, b) => a - b);
   return sorted[sorted.length - 1] - sorted[0];
 }
 
-function averageWordPairProbability(poem) {
+function avgWordPairProb(poem) {
   const wordPairsAndProbs = [];
   for (const wordIndexA of poem) {
     for (const wordIndexB of poem) {
@@ -194,7 +194,7 @@ function averageWordPairProbability(poem) {
   return average(wordPairsAndProbs.map(x => x[2]));
 }
 
-function probabilityOfLeastLikelyWordPair(poem) {
+function minWordPairProb(poem) {
   const wordPairsAndProbs = [];
   for (const wordIndexA of poem) {
     for (const wordIndexB of poem) {
@@ -210,21 +210,52 @@ function probabilityOfLeastLikelyWordPair(poem) {
   const leastLikelyPair = leastLikelyPairs[0];
   return leastLikelyPair[2];
 }
-probabilityOfLeastLikelyWordPair(user1Poems[0]);
+minWordPairProb(user1Poems[0]);
+
+function letterRepetitionScore(poem) {
+  const poemText = poem.map(wordIdx => fullWords[wordIdx].normal).join("");
+  const distinctLetters = distinct(poemText);
+  return distinctLetters.length / poemText.length;
+}
+
+function avgEnglishWordFreq(poem) {
+  // instead of using fullWords[wordIdx].normal,
+  // normalize differently to handle contractions appropriately for subtlex data
+  const words = poem.map(wordIdx => fullWords[wordIdx].text);
+  const normalized = words.map(word => {
+    const parts = word.split("'");
+    return parts[0].trim().toLowerCase().replace(/[^a-z0-9\s]/g, "");
+  });
+  const freqs = normalized.map(stem => wordFreqData[stem]);
+  if (freqs.some(freq => !freq)) console.warn("bad freq!", normalized, freqs);
+  return average(freqs);
+}
+
+function minEnglishWordFreq(poem) {
+  // instead of using fullWords[wordIdx].normal,
+  // normalize differently to handle contractions appropriately for subtlex data
+  const words = poem.map(wordIdx => fullWords[wordIdx].text);
+  const normalized = words.map(word => {
+    const parts = word.split("'");
+    return parts[0].trim().toLowerCase().replace(/[^a-z0-9\s]/g, "");
+  });
+  const freqs = normalized.map(stem => wordFreqData[stem]);
+  return Math.min(...freqs);
+}
 
 /// metrics infrastructure
 
 const poemMetrics = {
-  "averageWordPosition": {
-    evaluate: averageWordPosition,
+  "avgWordPosition": {
+    evaluate: avgWordPosition,
     range: [0, 160]
   },
-  "distanceBetweenFirstAndLastWord": {
-    evaluate: distanceBetweenFirstAndLastWord,
+  "distBetweenFirstAndLastWords": {
+    evaluate: distBetweenFirstAndLastWords,
     range: [0, 160] // or 180 to show upper end
   },
-  "averageWithinPoemspaceWordFrequency": {
-    evaluate: averageWithinPoemspaceWordFrequency,
+  "avgPoemspaceWordFreq": {
+    evaluate: avgPoemspaceWordFreq,
     range: [0, 0.04]
   },
   "poemLengthInChars": {
@@ -232,17 +263,30 @@ const poemMetrics = {
     range: [0, 60]
   },
   // i don't like this one very much visually, but let's try it
-  "withinPoemspaceFrequencyOfRarestWord": {
-    evaluate: withinPoemspaceFrequencyOfRarestWord,
+  "minPoemspaceWordFreq": {
+    evaluate: minPoemspaceWordFreq,
     range: [0, 0.015]
   },
-  "averageWordPairProbability": {
-    evaluate: averageWordPairProbability,
+  "avgWordPairProb": {
+    evaluate: avgWordPairProb,
     range: [0, 0.06]
   },
-  "probabilityOfLeastLikelyWordPair": {
-    evaluate: probabilityOfLeastLikelyWordPair,
+  "minWordPairProb": {
+    evaluate: minWordPairProb,
     range: [0, 0.016]
+  },
+  "letterRepetitionScore": {
+    evaluate: letterRepetitionScore,
+    range: [0.2, 1]
+  },
+  // english corpus frequency metrics
+  "avgEnglishWordFreq": {
+    evaluate: avgEnglishWordFreq,
+    range: [0, 0.02]
+  },
+  "minEnglishWordFreq": {
+    evaluate: minEnglishWordFreq,
+    range: [0, 0.00008]
   },
 };
 for (const metricName of Object.keys(poemMetrics)) {
@@ -259,8 +303,8 @@ function summarizePoem(poem, xMetricName, yMetricName) {
 
 function makeHexbinChart(xMetricName, yMetricName, options) {
   // declare basic chart dimensions
-  const svgWidth = 400;
-  const svgHeight = 400;
+  const svgWidth = 320;
+  const svgHeight = 320;
   const width = 640;
   const height = 640;
   const margin = {top: 20, right: 20, bottom: 30, left: 40};
@@ -280,7 +324,7 @@ function makeHexbinChart(xMetricName, yMetricName, options) {
     .rangeRound([margin.left, width - margin.right]);
   const yScale = d3.scaleLinear()
     //.domain(d3.extent(data, d => d.y))
-    .domain(yMetric.range) // for averageWithinPoemspaceWordFrequency
+    .domain(yMetric.range) // for avgPoemspaceWordFreq
     .rangeRound([height - margin.bottom, margin.top]);
 
   // put data in hexbins
@@ -407,34 +451,38 @@ function makeHexbinChart(xMetricName, yMetricName, options) {
   return chart;
 }
 
+/*
 const metricPairs = [
   // where in the source text are words chosen from, vs how far apart the words are
-  ["averageWordPosition", "distanceBetweenFirstAndLastWord"],
+  ["avgWordPosition", "distBetweenFirstAndLastWords"],
 
   // where in the source text are words chosen from, vs how common are the individual words used
-  ["averageWordPosition", "averageWithinPoemspaceWordFrequency"],
-  ["averageWordPosition", "withinPoemspaceFrequencyOfRarestWord"],
+  ["avgWordPosition", "avgEnglishWordFreq"],
+  ["avgWordPosition", "avgPoemspaceWordFreq"],
+  ["avgWordPosition", "minPoemspaceWordFreq"],
 
   // where in the source text are words chosen from, vs how common are the word pairs used
-  ["averageWordPosition", "averageWordPairProbability"],
-  ["averageWordPosition", "probabilityOfLeastLikelyWordPair"],
+  ["avgWordPosition", "avgWordPairProb"],
+  ["avgWordPosition", "minWordPairProb"],
 
   // how far apart are the words, vs how common are the individual words used
-  ["distanceBetweenFirstAndLastWord", "averageWithinPoemspaceWordFrequency"],
-  ["distanceBetweenFirstAndLastWord", "withinPoemspaceFrequencyOfRarestWord"],
+  ["distBetweenFirstAndLastWords", "avgPoemspaceWordFreq"],
+  ["distBetweenFirstAndLastWords", "minPoemspaceWordFreq"],
 
   // how far apart are the words, vs how common are the word pairs used
-  ["distanceBetweenFirstAndLastWord", "averageWordPairProbability"],
-  ["distanceBetweenFirstAndLastWord", "probabilityOfLeastLikelyWordPair"],
+  ["distBetweenFirstAndLastWords", "avgWordPairProb"],
+  ["distBetweenFirstAndLastWords", "minWordPairProb"],
 
   // do *average* single-word and word pair probabilities correlate strongly
   // with *minimal* probabilities for the same?
-  ["averageWordPairProbability", "probabilityOfLeastLikelyWordPair"],
-  ["averageWithinPoemspaceWordFrequency", "withinPoemspaceFrequencyOfRarestWord"],
+  ["avgWordPairProb", "minWordPairProb"],
+  ["avgPoemspaceWordFreq", "minPoemspaceWordFreq"],
 ];
+*/
 
 const mainDiv = document.getElementById("mainDiv");
 
+/*
 for (const metricPair of metricPairs) {
   mainDiv.appendChild(createNode(`<h2>${metricPair.join(" vs ")}</h2>`));
   const mainChart = makeHexbinChart(metricPair[0], metricPair[1], {drawAllUserData: true});
@@ -453,6 +501,151 @@ for (const metricPair of metricPairs) {
   });
   mainDiv.appendChild(userArtifactsLegend);
 }
+*/
+
+const metricsToPlot = [
+  "avgWordPosition",
+  "distBetweenFirstAndLastWords",
+  "poemLengthInChars",
+  "avgEnglishWordFreq",
+  "avgPoemspaceWordFreq",
+  //"minPoemspaceWordFreq",
+  "avgWordPairProb",
+  //"minWordPairProb",
+  "letterRepetitionScore",
+];
+const cornerPlotDiv = createNode("<div class='corner-plot'></div>");
+mainDiv.appendChild(cornerPlotDiv);
+for (let y = 1; y < metricsToPlot.length; y++) {
+  const yMetric = metricsToPlot[y];
+  const row = createNode(`<div class="corner-plot-row">
+    <span class="corner-plot-y-label">${yMetric}</span>
+  </div>`);
+  cornerPlotDiv.appendChild(row);
+  for (let x = 0; x < y; x++) {
+    const xMetric = metricsToPlot[x];
+    console.log("plotting", xMetric, "vs", yMetric);
+    const xyChart = makeHexbinChart(xMetric, yMetric, {drawAllUserData: true});
+    row.appendChild(xyChart);
+  }
+}
+const xAxisRow = createNode(`<div class="corner-plot-row">
+  <span class="corner-plot-y-label"></span>
+</div>`);
+cornerPlotDiv.appendChild(xAxisRow);
+for (let x = 0; x < metricsToPlot.length - 1; x++) {
+  // x axis labels, but skip the last one (empty column)
+  const metric = metricsToPlot[x];
+  xAxisRow.appendChild(createNode(`<span class="corner-plot-x-label">${metric}</span>`));
+}
+
+function makeTrajectoryRow(xMetricName, yMetricName) {
+  // set up a container div with two rows – one for charts, one for x-axis labels
+  const containerDiv = createNode("<div class='trajectory-row'></div>");
+  const rowDiv = createNode(`<div class="corner-plot-row">
+    <span class="corner-plot-y-label">${yMetricName}</span>
+  </div>`);
+  containerDiv.appendChild(rowDiv);
+  const xAxisRow = createNode(`<div class="corner-plot-row">
+    <span class="corner-plot-y-label"></span>
+  </div>`);
+  containerDiv.appendChild(xAxisRow);
+
+  // make and append both charts and x-axis labels
+  for (let userIdx = 0; userIdx < userSessions.length; userIdx++) {
+    // here's the chart...
+    const perUserChart = makeHexbinChart(
+      xMetricName,
+      yMetricName,
+      {drawSingleUserData: true, targetUser: userIdx}
+    );
+    rowDiv.appendChild(perUserChart);
+    // ...and here's the x-axis label
+    const xAxisLabel = createNode(`<span class="corner-plot-x-label">
+      ${xMetricName}<br>
+      (<span style="color:${d3.schemeCategory10[userIdx]};font-weight:bold;">P${userIdx+1}</span>)
+    </span>`);
+    xAxisRow.appendChild(xAxisLabel);
+  }
+
+  // and then the legend
+  const userArtifactsLegend = legend({
+    color: d3.scaleSequential([0, 10], d3.interpolateOranges),
+    title: "Artifact creation order",
+    width: 200
+  });
+  rotateLegend(userArtifactsLegend);
+  rowDiv.appendChild(userArtifactsLegend);
+
+  return containerDiv;
+}
+
+//mainDiv.appendChild(makeTrajectoryRow("distBetweenFirstAndLastWords", "avgWordPairProb"));
+//mainDiv.appendChild(makeTrajectoryRow("minPoemspaceWordFreq", "minWordPairProb"));
+mainDiv.appendChild(makeTrajectoryRow("avgWordPosition", "distBetweenFirstAndLastWords"));
+
+mainDiv.appendChild(makeTrajectoryRow("avgPoemspaceWordFreq", "avgEnglishWordFreq"));
+
+
+function makeStandaloneMultiuserChart(xMetricName, yMetricName) {
+  // set up a container div with two rows – one for charts, one for x-axis labels
+  const containerDiv = createNode("<div class='trajectory-row'></div>");
+  const rowDiv = createNode(`<div class="corner-plot-row">
+    <span class="corner-plot-y-label">${yMetricName}</span>
+  </div>`);
+  containerDiv.appendChild(rowDiv);
+  const xAxisRow = createNode(`<div class="corner-plot-row">
+    <span class="corner-plot-y-label"></span>
+    <span class="corner-plot-x-label">${xMetricName}</span>
+  </div>`);
+  containerDiv.appendChild(xAxisRow);
+  // and put the actual chart in the top row
+  const chart = makeHexbinChart(xMetricName, yMetricName, {drawAllUserData: true});
+  rowDiv.appendChild(chart);
+  return containerDiv;
+}
+
+function makeStandaloneTrajectoryChart(xMetricName, yMetricName, userIdx) {
+  // set up a container div with two rows – one for charts, one for x-axis labels
+  const containerDiv = createNode("<div class='trajectory-row'></div>");
+  const rowDiv = createNode(`<div class="corner-plot-row">
+    <span class="corner-plot-y-label">${yMetricName}</span>
+  </div>`);
+  containerDiv.appendChild(rowDiv);
+  const xAxisRow = createNode(`<div class="corner-plot-row">
+    <span class="corner-plot-y-label"></span>
+    <span class="corner-plot-x-label">
+      ${xMetricName}<br>
+      (<span style="color:${d3.schemeCategory10[userIdx]};font-weight:bold;">P${userIdx+1}</span>)
+    </span>
+  </div>`);
+  containerDiv.appendChild(xAxisRow);
+  // and put the actual chart in the top row
+  const chart = makeHexbinChart(
+    xMetricName,
+    yMetricName,
+    {drawSingleUserData: true, targetUser: userIdx}
+  );
+  rowDiv.appendChild(chart);
+  // and then the legend
+  const userArtifactsLegend = legend({
+    color: d3.scaleSequential([0, 10], d3.interpolateOranges),
+    title: "Artifact creation order",
+    width: 200
+  });
+  rotateLegend(userArtifactsLegend);
+  rowDiv.appendChild(userArtifactsLegend);
+  return containerDiv;
+}
+
+mainDiv.appendChild(makeStandaloneTrajectoryChart("avgWordPosition", "avgPoemspaceWordFreq", 0));
+
+mainDiv.appendChild(makeStandaloneMultiuserChart("avgWordPosition", "distBetweenFirstAndLastWords"));
+
+mainDiv.appendChild(makeStandaloneMultiuserChart("poemLengthInChars", "avgEnglishWordFreq"));
+
+mainDiv.appendChild(makeStandaloneMultiuserChart("avgPoemspaceWordFreq", "avgWordPairProb"));
+
 
 /// word usage heatmap
 

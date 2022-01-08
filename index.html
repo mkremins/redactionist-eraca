@@ -6,6 +6,17 @@
   <title>ERaCA</title>
   <style>
   html { font-family: sans-serif; /*width: 960px;*/ }
+  .corner-plot-x-label { display: inline-block; text-align: center; width: 320px; }
+  .corner-plot-y-label {
+    display: inline-block;
+    margin-left: -150px; /* to remove extra space on left and right */
+    margin-right: -150px; /* to remove extra space on left and right */
+    position: relative; /* so that we can use top */
+    text-align: center;
+    top: -160px;
+    transform: rotate(-90deg);
+    width: 320px;
+  }
   .heatmap { background: black; font-size: 24px; line-height: 1.5; padding: 0.5rem; }
   </style>
 </head>
@@ -17,6 +28,7 @@
   <script src="./fullPoemspace.js"></script>
   <script src="./fullWords.js"></script>
   <script src="./userPoems.js"></script>
+  <script src="./wordFreqData.js"></script>
   <script src="./main.js"></script>
 </body>
 </html>

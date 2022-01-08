@@ -147,3 +147,18 @@ function ramp(color, n = 256) {
   }
   return canvas;
 }
+
+function rotateLegend(legendNode) {
+  legendNode.style.display = "inline-block";
+  legendNode.style.position = "relative";
+  legendNode.style.left = "-75px";
+  legendNode.style.top = "-185px";
+  legendNode.style.transform = "rotate(-90deg)";
+  const labels = legendNode.querySelectorAll("text");
+  for (const label of labels) {
+    if (label.getAttribute("font-weight") === "bold") continue; // skip the title
+    label.setAttribute("x", 10);
+    label.setAttribute("y", -3);
+    label.style.transform = "rotate(90deg)";
+  }
+}
