@@ -5,10 +5,6 @@ const user1Poems = [
   // an experimental computer met a possible poetry
   [5, 6, 97, 123, 124, 74, 44],
 
-  /*
-  // experimental programs write a welcome poetry
-  [17, 19, 6, 33, 106, 81],*/
-
   // we like robotic humans
   [83, 129, 52, 62],
 
@@ -130,16 +126,6 @@ const user2Poems = [
     112,
     123
   ],
-
-  /*
-  // we recreate a possible humans
-  [
-    144,
-    117,
-    52,
-    123
-  ]
-  */
 ];
 
 const user3Poems = [
